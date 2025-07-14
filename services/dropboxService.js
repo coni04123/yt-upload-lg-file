@@ -62,7 +62,7 @@ const shareFilePublicly = async (dropboxPath) => {
         },
     });
 
-    return res.result.url.replace("?dl=0", "?raw=1"); // direct link
+    return res.result.url.replace("dl=0", "dl=1"); // direct link
 };
 
 // Unshare (revoke public link) for a file

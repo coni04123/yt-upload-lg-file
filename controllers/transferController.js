@@ -38,16 +38,19 @@ const transferDropboxToYouTube = async (req, res) => {
 
 // Share a Dropbox file publicly
 const shareDropboxFile = async (req, res) => {
-    const { path } = req.body;
-    if (!path) return res.status(400).json({ error: "Dropbox path is required" });
+  const { path, mode = "download" } = req.body;
 
-    try {
-        const publicUrl = await shareFilePublicly(path);
-        res.json({ success: true, url: publicUrl });
-    } catch (err) {
-        console.error("Share failed:", err.message);
-        res.status(500).json({ error: "Failed to share file" });
-    }
+  if (!path) return res.status(400).json({ error: "Dropbox path is required" });
+
+  try {
+    const url = await shareFilePublicly(path);
+    const cleanUrl = url.replace("?dl=0", mode === "raw" ? "?raw=1" : mode === "download" ? "?dl=1" : "?dl=0");
+
+    res.json({ success: true, url: cleanUrl });
+  } catch (err) {
+    console.error("Share failed:", err.message);
+    res.status(500).json({ error: "Failed to share file" });
+  }
 };
 
 // Unshare Dropbox file
