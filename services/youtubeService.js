@@ -1,5 +1,8 @@
 const fs = require("fs");
+const axios = require("axios");
 const { google } = require("googleapis");
+const path = require("path");
+const os = require("os");
 
 const oauth2Client = new google.auth.OAuth2(
     process.env.YOUTUBE_CLIENT_ID,
@@ -14,8 +17,23 @@ const youtube = google.youtube({
     auth: oauth2Client,
 });
 
-async function uploadVideoFromFile(filePath, title = "Uploaded via API", description = "") {
+async function uploadVideoFromFile(filePath, title = "Uploaded via API", description = "", tagsString = "", thumbnailUrl = null, scheduledPublishTime = null) {
     const videoStream = fs.createReadStream(filePath);
+
+    // Convert comma-separated string into array
+    const tags = tagsString
+        .split(",")
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0); // Remove empty strings
+
+    const status = {
+        privacyStatus: scheduledPublishTime ? "private" : "unlisted",
+    };
+
+    if (scheduledPublishTime) {
+        status.publishAt = new Date(scheduledPublishTime).toISOString(); // Ensure UTC ISO string
+        status.selfDeclaredMadeForKids = false; // Required for scheduled publishing
+    }
 
     const response = await youtube.videos.insert({
         part: "snippet,status",
@@ -23,9 +41,10 @@ async function uploadVideoFromFile(filePath, title = "Uploaded via API", descrip
             snippet: {
                 title,
                 description,
+                tags,
             },
             status: {
-                privacyStatus: "unlisted",
+                privacyStatus: "public",
             },
         },
         media: {
@@ -33,7 +52,35 @@ async function uploadVideoFromFile(filePath, title = "Uploaded via API", descrip
         },
     });
 
+    const videoId = response.data.id;
+
+    if (thumbnailUrl) {
+        await setThumbnailFromUrl(videoId, thumbnailUrl);
+    }
+
     return response.data;
+}
+
+async function setThumbnailFromUrl(videoId, imageUrl) {
+    const tempPath = path.join(os.tmpdir(), `yt-thumb-${Date.now()}.jpg`);
+
+    const response = await axios.get(imageUrl, { responseType: "stream" });
+    const writer = fs.createWriteStream(tempPath);
+
+    await new Promise((resolve, reject) => {
+        response.data.pipe(writer);
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+    });
+
+    await youtube.thumbnails.set({
+        videoId,
+        media: {
+            body: fs.createReadStream(tempPath),
+        },
+    });
+
+    fs.unlinkSync(tempPath);
 }
 
 module.exports = {

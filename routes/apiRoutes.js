@@ -5,7 +5,9 @@ const {
     shareDropboxFile,
     unshareDropboxFile,
 } = require("../controllers/transferController");
+const { uploadEpisode } = require("../controllers/redcircleController");
 
+router.post("/redcircle", uploadEpisode);
 router.post("/transfer", transferDropboxToYouTube);
 router.post("/share", shareDropboxFile);
 router.post("/unshare", unshareDropboxFile);
