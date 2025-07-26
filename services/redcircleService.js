@@ -1,9 +1,20 @@
 const puppeteer = require("puppeteer");
 require("dotenv").config();
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
 const uploadEpisode = async ({ filePath, title, description, transcriptionLink }) => {
-    const browser = await puppeteer.launch({ headless: false }); // Show browser for debugging
+  try {
+    const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
+    let episodeUrl = null;
+
+    // Set global timeouts to 120 seconds
+    page.setDefaultTimeout(120000);
+    page.setDefaultNavigationTimeout(120000);
 
     await page.goto('https://app.redcircle.com/sign-in?goto=%2F&', { waitUntil: 'networkidle2' });
     await page.type('input[name="email"]', 'builttogrowpodcast@gmail.com');
@@ -17,8 +28,6 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
         await page.waitForSelector('div[title="Built To Grow Fitness Business"]');
         await page.click('div[title="Built To Grow Fitness Business"]');
 
-        // await page.waitForNavigation({ waitUntil: "networkidle2" });
-
         // Get the current URL
         const currentUrl = page.url();
 
@@ -30,6 +39,8 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
 
         await page.waitForSelector('iframe');
 
+        await sleep(10000);
+
         await page.keyboard.press('Escape');
 
         await page.type('#title', title);
@@ -38,21 +49,23 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
             quill.innerHTML = html;
         }, description);
 
+        console.log(filePath)
+
         await page.$('input[type="file"][accept*="audio"]').then(input => input.uploadFile(filePath));
 
         await page.evaluate(() => {
           const strongs = Array.from(document.querySelectorAll('span.ant-checkbox-label'));
           const dropDown = strongs.find(str => str.textContent.trim() === 'Transcribe Episode');
           if (dropDown) {
-            dropDown.click();          // click
+            dropDown.click();
           }
         });
-        
+
         await page.evaluate(() => {
           const strongs = Array.from(document.querySelectorAll('strong'));
           const dropDown = strongs.find(str => str.textContent.trim() === 'More Options');
           if (dropDown) {
-            dropDown.click();          // click
+            dropDown.click();
           }
         });
 
@@ -63,18 +76,18 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
         await page.click('div[title="VTT"]');
 
         await page.evaluate(() => {
-          const buttons = Array.from(document.querySelectorAll('button.ant-btn-primary'));
-          const publishBtn = buttons.find(btn => btn.textContent.trim() === 'Save As Draft');
+          const buttons = Array.from(document.querySelectorAll('span'));
+          const publishBtn = buttons.find(btn => btn.textContent.trim() === 'Save as Draft');
           if (publishBtn) {
-            publishBtn.disabled = false; // force-enable
-            publishBtn.click();          // click
+            publishBtn.disabled = false;
+            publishBtn.click();
           }
         });
 
         while (page.url().endsWith('/create')) {
-            console.log('On /create yet. Waiting 1 minute...');
             await sleep(1000); // wait 60 seconds
         }
+        episodeUrl = page.url();
 
         await page.goto("https://app.redcircle.com/shows", { waitUntil: 'networkidle2' });
 
@@ -82,20 +95,23 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
           const buttons = Array.from(document.querySelectorAll('span.m-lxs'));
           const builtBtn = buttons.find(btn => btn.textContent.trim() === 'Built');
           if (builtBtn) {
-            builtBtn.click();          // click
-            
+            builtBtn.click();
           }
         });
 
         await page.waitForSelector('a[data-testid="tooltip-wrapped-text"]');
         await page.click('a[data-testid="tooltip-wrapped-text"]');
 
-
     } else {
         console.log('Login failed.');
     }
 
     await browser.close();
+    return { success: true, message: episodeUrl };
+  } catch (error) {
+    console.log(error)
+    return { success: false, error: error.message };
   }
+}
 
-  module.exports = { uploadEpisode };
+module.exports = { uploadEpisode };

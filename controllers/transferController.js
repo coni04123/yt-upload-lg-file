@@ -5,22 +5,22 @@ const {
 } = require("../services/dropboxService");
 
 const { uploadVideoFromFile } = require("../services/youtubeService");
-const fs = require("fs");
+const TempFileManager = require("../utils/tempFileManager");
 const path = require("path");
 
 // Transfer: Dropbox → YouTube transferDropboxToYouTube
 const transferDropboxToYouTube = async (req, res) => {
-    const { path: dropboxPath, title, description, tags, thumbnailUrl, scheduledPublishTime } = req.body;
+    const { path: dropboxPath, title, description, tags, thumbnails } = req.body;
 
     if (!dropboxPath) {
         return res.status(400).json({ error: "Dropbox path is required" });
     }
 
-    try {
-        const fileName = path.basename(dropboxPath);
-        const tempPath = `./temp/${fileName}`;
+    const fileName = path.basename(dropboxPath);
+    const tempPath = `./temp/${fileName}`;
 
-        fs.mkdirSync("./temp", { recursive: true });
+    try {
+        TempFileManager.ensureDirectory("./temp");
         await downloadDropboxStream(dropboxPath, tempPath);
 
         const result = await uploadVideoFromFile(
@@ -28,22 +28,20 @@ const transferDropboxToYouTube = async (req, res) => {
             title || fileName,
             description || "",
             tags || "",
-            thumbnailUrl || null,
-            scheduledPublishTime || null
+            thumbnails
         );
-
-        fs.unlinkSync(tempPath);
 
         return res.status(200).json({
             success: true,
             videoId: result.id,
-            message: scheduledPublishTime
-                ? `Video scheduled for ${scheduledPublishTime}`
-                : "Video uploaded to YouTube",
+            message: "Video uploaded to YouTube"
         });
     } catch (err) {
         console.error("Transfer failed:", err.message);
         return res.status(500).json({ error: "Failed to transfer video" });
+    } finally {
+        // Clean up temporary file using the utility
+        TempFileManager.safeDelete(tempPath);
     }
 };
 

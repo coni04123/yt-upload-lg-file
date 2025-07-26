@@ -11,5 +11,6 @@ router.post("/redcircle", uploadEpisode);
 router.post("/transfer", transferDropboxToYouTube);
 router.post("/share", shareDropboxFile);
 router.post("/unshare", unshareDropboxFile);
+router.get("/test", (req, res) => {return res.send("Okay")})
 
 module.exports = router;
