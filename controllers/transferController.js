@@ -10,7 +10,7 @@ const path = require("path");
 
 // Transfer: Dropbox → YouTube transferDropboxToYouTube
 const transferDropboxToYouTube = async (req, res) => {
-    const { path: dropboxPath, title, description, tags, thumbnails } = req.body;
+    const { path: dropboxPath, title, description, tags, thumbnails, schedulingTime } = req.body;
 
     if (!dropboxPath) {
         return res.status(400).json({ error: "Dropbox path is required" });
@@ -32,7 +32,8 @@ const transferDropboxToYouTube = async (req, res) => {
             title || fileName,
             description || "",
             tags || "",
-            thumbnails
+            thumbnails,
+            schedulingTime
         );
 
         return res.status(200).json({

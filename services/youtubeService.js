@@ -18,23 +18,25 @@ const youtube = google.youtube({
     auth: oauth2Client,
 });
 
-async function uploadVideoFromFile(filePath, title = "Uploaded via API", description = "", tagsString = "", thumbnailUrl = null) {
+async function uploadVideoFromFile(filePath, title = "Uploaded via API", description = "", tagsString = "", thumbnailUrl = null, schedulingTime = null) {
     const videoStream = fs.createReadStream(filePath);
 
     // Convert comma-separated string into array
     const tags = tagsString
         .split(",")
         .map(tag => tag.trim())
-        .filter(tag => tag.length > 0); // Remove empty strings
+        .filter(tag => tag.length > 0);
 
-    const status = {
-        privacyStatus: scheduledPublishTime ? "private" : "unlisted",
-    };
-
-    // if (scheduledPublishTime) {
-    //     status.publishAt = new Date(scheduledPublishTime).toISOString(); // Ensure UTC ISO string
-    //     status.selfDeclaredMadeForKids = false; // Required for scheduled publishing
-    // }
+    // Set privacyStatus and publishAt for scheduling
+    const status = schedulingTime
+        ? {
+            privacyStatus: "private",
+            publishAt: new Date(schedulingTime).toISOString(),
+            selfDeclaredMadeForKids: false
+        }
+        : {
+            privacyStatus: "public"
+        };
 
     const response = await youtube.videos.insert({
         part: "snippet,status",
@@ -44,9 +46,7 @@ async function uploadVideoFromFile(filePath, title = "Uploaded via API", descrip
                 description,
                 tags,
             },
-            status: {
-                privacyStatus: "public",
-            },
+            status,
         },
         media: {
             body: videoStream,
