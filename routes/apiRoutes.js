@@ -4,11 +4,13 @@ const {
     transferDropboxToYouTube,
     shareDropboxFile,
     unshareDropboxFile,
+    getDropboxVideoStaticLink,
 } = require("../controllers/transferController");
 const { uploadEpisode } = require("../controllers/redcircleController");
 
 router.post("/redcircle", uploadEpisode);
 router.post("/transfer", transferDropboxToYouTube);
+router.post("/dropbox/download", getDropboxVideoStaticLink);
 router.post("/share", shareDropboxFile);
 router.post("/unshare", unshareDropboxFile);
 router.get("/test", (req, res) => {return res.send("Okay")})

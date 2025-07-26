@@ -6,6 +6,7 @@ const apiRoutes = require("./routes/apiRoutes");
 app.use(express.json());
 
 app.use("/api", apiRoutes);
+app.use("/video", express.static("video"));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

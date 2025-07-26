@@ -85,6 +85,15 @@ class TempFileManager {
             return false;
         }
     }
+
+    /**
+     * Checks if a file exists
+     * @param {string} filePath - Path to the file
+     * @returns {boolean} True if file exists, false otherwise
+     */
+    static exists(filePath) {
+        return fs.existsSync(filePath);
+    }
 }
 
-module.exports = TempFileManager; 
+module.exports = TempFileManager;

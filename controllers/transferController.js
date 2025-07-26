@@ -17,11 +17,15 @@ const transferDropboxToYouTube = async (req, res) => {
     }
 
     const fileName = path.basename(dropboxPath);
-    const tempPath = `./temp/${fileName}`;
+    const tempPath = `./video/${fileName}`;
 
     try {
-        TempFileManager.ensureDirectory("./temp");
-        await downloadDropboxStream(dropboxPath, tempPath);
+        TempFileManager.ensureDirectory("./video");
+        if (TempFileManager.exists(tempPath)) {
+            console.log(`Temp file already exists at ${tempPath}, skipping download.`);
+        } else {
+            await downloadDropboxStream(dropboxPath, tempPath);
+        }
 
         const result = await uploadVideoFromFile(
             tempPath,
@@ -77,8 +81,32 @@ const unshareDropboxFile = async (req, res) => {
     }
 };
 
+const getDropboxVideoStaticLink = async (req, res) => {
+    const { path: dropboxPath } = req.body;
+
+    if (!dropboxPath) {
+        return res.status(400).json({ error: "Dropbox path is required" });
+    }
+
+    const fileName = path.basename(dropboxPath);
+    const tempPath = `./video/${fileName}`;
+
+    try {
+        TempFileManager.ensureDirectory("./video");
+        await downloadDropboxStream(dropboxPath, tempPath);
+
+        // Construct static link using server IP
+        const staticLink = `http://185.44.66.41:3000/video/${encodeURIComponent(fileName)}`;
+        return res.status(200).json({ success: true, url: staticLink });
+    } catch (err) {
+        console.error("Download failed:", err.message);
+        return res.status(500).json({ error: "Failed to download video" });
+    }
+};
+
 module.exports = {
     transferDropboxToYouTube,
     shareDropboxFile,
     unshareDropboxFile,
+    getDropboxVideoStaticLink,
 };
