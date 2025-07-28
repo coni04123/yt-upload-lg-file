@@ -39,9 +39,10 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
 
         await page.waitForSelector('iframe');
 
-        await sleep(10000);
-
-        await page.keyboard.press('Escape');
+        while (page.$('iframe') !== null) {
+            await sleep(1000); // wait 1 second
+            await page.keyboard.press('Escape');
+        }
 
         await page.type('#title', title);
         await page.evaluate((html) => {
