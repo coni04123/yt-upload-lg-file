@@ -13,7 +13,7 @@ const transferDropboxToYouTube = async (req, res) => {
     console.log(`\n🎬 Starting Dropbox to YouTube transfer...`);
     console.log(`📋 Request body:`, JSON.stringify(req.body, null, 2));
     
-    const { path: dropboxPath, title, description, tags, thumbnails, schedulingTime, webhookUrl } = req.body;
+    const { path: dropboxPath, title, description, tags, thumbnails, schedulingTime, webhookUrl, ...others } = req.body;
 
     if (!dropboxPath) {
         console.log(`❌ Error: Dropbox path is required`);
@@ -71,7 +71,7 @@ const transferDropboxToYouTube = async (req, res) => {
             // Notify webhook if provided
             if (webhookUrl) {
                 try {
-                    await require("axios").post(webhookUrl, result);
+                    await require("axios").post(webhookUrl, {...result, ...others});
                     console.log(`✅ Webhook notified: ${webhookUrl}`);
                 } catch (webhookErr) {
                     console.error(`❌ Failed to notify webhook: ${webhookErr.message}`);
