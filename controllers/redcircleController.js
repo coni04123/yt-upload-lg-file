@@ -47,9 +47,22 @@ const uploadEpisode = async (req, res) => {
                 result = { success: false, error: err.message };
             }
 
-            console.log(`✅ Episode upload completed successfully!`);
-            console.log(`🔗 Episode URL: ${result.message}`);
-            result = { success: true, message: result.message };
+            // Notify webhook if provided
+            if (webhookUrl) {
+                try {
+                    await axios.post(webhookUrl, {...result, executionId});
+                    console.log(`✅ Webhook notified: ${webhookUrl}`);
+                } catch (webhookErr) {
+                    console.error(`❌ Failed to notify webhook: ${webhookErr.message}`);
+                }
+            }
+
+            if (result.success) {
+                console.log(`✅ Episode upload completed successfully!`);
+                console.log(`🔗 Episode URL: ${result.message}`);
+            } else {
+                console.log(`❌ Episode upload failed: ${result.error}`);
+            }
         } catch (err) {
             console.error(`❌ Error: ${err.message}`);
             result = { success: false, error: err.message, stack: err.stack };
