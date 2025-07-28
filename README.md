@@ -2,10 +2,41 @@
 
 A Node.js application for uploading large files from Dropbox to YouTube and RedCircle with automatic temporary file cleanup.
 
+## Prerequisites
+
+### FFmpeg Installation
+This application uses FFmpeg for audio compression. Install it using one of these methods:
+
+**Windows (using Chocolatey):**
+```bash
+choco install ffmpeg
+```
+
+**Windows (using winget):**
+```bash
+winget install ffmpeg
+```
+
+**macOS (using Homebrew):**
+```bash
+brew install ffmpeg
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Verify installation:**
+```bash
+ffmpeg -version
+```
+
 ## Installation
 
 ```bash
-npm install express dotenv googleapis axios dropbox node-fetch qs puppeteer
+npm install express dotenv googleapis axios dropbox node-fetch qs puppeteer fluent-ffmpeg
 ```
 
 ## Environment Variables
@@ -110,9 +141,10 @@ The application includes robust temporary file management with automatic cleanup
 - ✅ Error handling with proper cleanup
 - ✅ Dropbox to YouTube video transfer
 - ✅ Dropbox file sharing/unsharing
-- ✅ RedCircle podcast episode upload
+- ✅ RedCircle podcast episode upload with audio compression
 - ✅ YouTube thumbnail support
 - ✅ Comprehensive logging
+- ✅ FFmpeg audio compression for large files
 
 ## Project Structure
 

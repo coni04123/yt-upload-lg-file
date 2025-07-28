@@ -4,6 +4,9 @@ node_modules/
 # dotenv env config
 .env
 
+video/
+tmp/
+
 # temp files (downloads/uploads)
 temp/
 *.log

@@ -1,20 +1,62 @@
+const fs = require("fs");
+const path = require("path");
 const puppeteer = require("puppeteer");
+const ffmpeg = require('fluent-ffmpeg');
+const { safeDelete } = require("../utils/tempFileManager");
+
+const MAX_SIZE_MB = 250;
+
 require("dotenv").config();
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function getFileSizeMB(filePath) {
+  const stats = fs.statSync(filePath);
+  return stats.size / (1024 * 1024);
+}
+
+function compressAudioIfNeeded(audioPath) {
+  return new Promise((resolve, reject) => {
+    const originalSize = getFileSizeMB(audioPath);
+    if (originalSize <= MAX_SIZE_MB) {
+      console.log("Original file is under 250MB. No compression needed.");
+      return resolve(audioPath);
+    }
+
+    const ext = path.extname(audioPath);
+    const outputPath = audioPath.replace(ext, `.compressed.mp3`);
+
+    ffmpeg(audioPath)
+      .audioBitrate('128k')
+      .format('mp3')
+      .on('end', () => {
+        const compressedSize = getFileSizeMB(outputPath);
+        if (compressedSize > MAX_SIZE_MB) {
+          fs.unlinkSync(outputPath);
+          return reject(new Error('Compressed file is still larger than 250MB!'));
+        }
+        return resolve(outputPath);
+      })
+      .on('error', (err) => {
+        return reject(new Error('Compression failed: ' + err.message));
+      })
+      .save(outputPath);
+  });
+}
+
 
 const uploadEpisode = async ({ filePath, title, description, transcriptionLink }) => {
+  let browser = null;
   try {
-    const browser = await puppeteer.launch({ headless: false });
+    browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
     let episodeUrl = null;
 
     // Set global timeouts to 120 seconds
-    page.setDefaultTimeout(120000);
-    page.setDefaultNavigationTimeout(120000);
+    page.setDefaultTimeout(600000);
+    page.setDefaultNavigationTimeout(600000);
 
     await page.goto('https://app.redcircle.com/sign-in?goto=%2F&', { waitUntil: 'networkidle2' });
     await page.type('input[name="email"]', 'builttogrowpodcast@gmail.com');
@@ -39,10 +81,17 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
 
         await page.waitForSelector('iframe');
 
-        while (page.$('iframe') !== null) {
-            await sleep(1000); // wait 1 second
-            await page.keyboard.press('Escape');
-        }
+        await sleep(1000); // wait 1 second
+        await page.keyboard.press('Escape');
+        await sleep(1000); // wait 1 second
+        await page.keyboard.press('Escape');
+        await sleep(1000); // wait 1 second
+        await page.keyboard.press('Escape');
+        await sleep(1000); // wait 1 second
+        await page.keyboard.press('Escape');
+        await sleep(1000); // wait 1 second
+        await page.keyboard.press('Escape');
+        await sleep(1000); // wait 1 second
 
         await page.type('#title', title);
         await page.evaluate((html) => {
@@ -52,7 +101,9 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
 
         console.log(filePath)
 
-        await page.$('input[type="file"][accept*="audio"]').then(input => input.uploadFile(filePath));
+        const compressedFilePath = await compressAudioIfNeeded(filePath);
+
+        await page.$('input[type="file"][accept*="audio"]').then(input => input.uploadFile(compressedFilePath));
 
         await page.evaluate(() => {
           const strongs = Array.from(document.querySelectorAll('span.ant-checkbox-label'));
@@ -103,15 +154,18 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
         await page.waitForSelector('a[data-testid="tooltip-wrapped-text"]');
         await page.click('a[data-testid="tooltip-wrapped-text"]');
 
+        safeDelete(compressedFilePath); 
+
     } else {
         console.log('Login failed.');
     }
 
-    await browser.close();
     return { success: true, message: episodeUrl };
   } catch (error) {
     console.log(error)
     return { success: false, error: error.message };
+  } finally {
+    await browser.close();
   }
 }
 
