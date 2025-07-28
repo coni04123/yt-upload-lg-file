@@ -62,7 +62,7 @@ async function uploadVideoFromFile(filePath, title = "Uploaded via API", descrip
             selfDeclaredMadeForKids: false
         }
         : {
-            privacyStatus: "private"
+            privacyStatus: "public"
         };
     console.log(`🔒 Privacy status: ${status.privacyStatus}`);
     if (schedulingTime) {
