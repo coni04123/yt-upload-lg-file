@@ -13,65 +13,72 @@ const transferDropboxToYouTube = async (req, res) => {
     console.log(`\n🎬 Starting Dropbox to YouTube transfer...`);
     console.log(`📋 Request body:`, JSON.stringify(req.body, null, 2));
     
-    const { path: dropboxPath, title, description, tags, thumbnails, schedulingTime } = req.body;
+    const { path: dropboxPath, title, description, tags, thumbnails, schedulingTime, webhookUrl } = req.body;
 
     if (!dropboxPath) {
         console.log(`❌ Error: Dropbox path is required`);
         return res.status(400).json({ error: "Dropbox path is required" });
     }
 
-    console.log(`📁 Dropbox path: ${dropboxPath}`);
-    console.log(`📝 Title: ${title || 'Using filename'}`);
-    console.log(`📄 Description: ${description || 'No description'}`);
-    console.log(`🏷️  Tags: ${tags || 'No tags'}`);
-    console.log(`🖼️  Thumbnails: ${thumbnails || 'No thumbnails'}`);
-    console.log(`📅 Scheduling time: ${schedulingTime || 'None (public)'}`);
+    // Immediately respond to the client
+    res.status(202).json({ message: "Signal received. Processing in background." });
 
-    const fileName = path.basename(dropboxPath);
-    const tempPath = `./video/${fileName}`;
-    console.log(`📁 Local file path: ${tempPath}`);
+    // Run the upload in the background
+    (async () => {
+        const fileName = path.basename(dropboxPath);
+        const tempPath = `./video/${fileName}`;
+        let result = {};
+        try {
+            console.log(`📁 Ensuring video directory exists...`);
+            TempFileManager.ensureDirectory("./video");
+            console.log(`✅ Video directory ready`);
+            
+            if (TempFileManager.exists(tempPath)) {
+                console.log(`📁 File already exists at ${tempPath}, skipping download`);
+            } else {
+                console.log(`📥 Downloading file from Dropbox...`);
+                await downloadDropboxStream(dropboxPath, tempPath);
+                console.log(`✅ File downloaded successfully`);
+            }
 
-    try {
-        console.log(`📁 Ensuring video directory exists...`);
-        TempFileManager.ensureDirectory("./video");
-        console.log(`✅ Video directory ready`);
-        
-        if (TempFileManager.exists(tempPath)) {
-            console.log(`📁 File already exists at ${tempPath}, skipping download`);
-        } else {
-            console.log(`📥 Downloading file from Dropbox...`);
-            await downloadDropboxStream(dropboxPath, tempPath);
-            console.log(`✅ File downloaded successfully`);
+            console.log(`🎬 Starting YouTube upload...`);
+            await uploadVideoFromFile(
+                tempPath,
+                title || fileName,
+                description || "",
+                tags || "",
+                thumbnails,
+                schedulingTime
+            );
+
+            result = {
+                success: true,
+                message: "Video uploaded to YouTube"
+            };
+            console.log(`✅ Transfer completed successfully!`);
+        } catch (err) {
+            console.error(`❌ Transfer failed: ${err.message}`);
+            result = {
+                success: false,
+                error: err.message,
+                stack: err.stack
+            };
+        } finally {
+            // Clean up temporary file using the utility
+            console.log(`🧹 Cleaning up temporary file...`);
+            TempFileManager.safeDelete(tempPath);
+            console.log(`✅ Temporary file cleaned up`);
+            // Notify webhook if provided
+            if (webhookUrl) {
+                try {
+                    await require("axios").post(webhookUrl, result);
+                    console.log(`✅ Webhook notified: ${webhookUrl}`);
+                } catch (webhookErr) {
+                    console.error(`❌ Failed to notify webhook: ${webhookErr.message}`);
+                }
+            }
         }
-
-        console.log(`🎬 Starting YouTube upload...`);
-        const result = await uploadVideoFromFile(
-            tempPath,
-            title || fileName,
-            description || "",
-            tags || "",
-            thumbnails,
-            schedulingTime
-        );
-
-        console.log(`✅ Transfer completed successfully!`);
-        console.log(`🎬 Video ID: ${result.id}`);
-        console.log(`🔗 Video URL: https://www.youtube.com/watch?v=${result.id}`);
-
-        return res.status(200).json({
-            success: true,
-            videoId: result.id,
-            message: "Video uploaded to YouTube"
-        });
-    } catch (err) {
-        console.error(`❌ Transfer failed: ${err.message}`);
-        return res.status(500).json({ error: "Failed to transfer video" });
-    } finally {
-        // Clean up temporary file using the utility
-        console.log(`🧹 Cleaning up temporary file...`);
-        TempFileManager.safeDelete(tempPath);
-        console.log(`✅ Temporary file cleaned up`);
-    }
+    })();
 };
 
 // Share a Dropbox file publicly
