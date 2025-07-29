@@ -25,25 +25,25 @@ const transferDropboxToYouTube = async (req, res) => {
 
     // Run the upload in the background
     (async () => {
-        const fileName = path.basename(dropboxPath);
-        const tempPath = `./video/${fileName}`;
-        let result = {};
+        // const fileName = path.basename(dropboxPath);
+        // const tempPath = `./video/${fileName}`;
+        // let result = {};
         try {
-            console.log(`📁 Ensuring video directory exists...`);
-            TempFileManager.ensureDirectory("./video");
-            console.log(`✅ Video directory ready`);
+        //     console.log(`📁 Ensuring video directory exists...`);
+        //     TempFileManager.ensureDirectory("./video");
+        //     console.log(`✅ Video directory ready`);
             
-            if (TempFileManager.exists(tempPath)) {
-                console.log(`📁 File already exists at ${tempPath}, skipping download`);
-            } else {
-                console.log(`📥 Downloading file from Dropbox...`);
-                await downloadDropboxStream(dropboxPath, tempPath);
-                console.log(`✅ File downloaded successfully`);
-            }
+        //     if (TempFileManager.exists(tempPath)) {
+        //         console.log(`📁 File already exists at ${tempPath}, skipping download`);
+        //     } else {
+        //         console.log(`📥 Downloading file from Dropbox...`);
+        //         await downloadDropboxStream(dropboxPath, tempPath);
+        //         console.log(`✅ File downloaded successfully`);
+        // }
 
             console.log(`🎬 Starting YouTube upload...`);
             const _yt = await uploadVideoFromFile(
-                tempPath,
+                dropboxPath,
                 title || fileName,
                 description || "",
                 tags || "",
@@ -67,9 +67,9 @@ const transferDropboxToYouTube = async (req, res) => {
             };
         } finally {
             // Clean up temporary file using the utility
-            console.log(`🧹 Cleaning up temporary file...`);
-            TempFileManager.safeDelete(tempPath);
-            console.log(`✅ Temporary file cleaned up`);
+            // console.log(`🧹 Cleaning up temporary file...`);
+            // TempFileManager.safeDelete(tempPath);
+            // console.log(`✅ Temporary file cleaned up`);
             // Notify webhook if provided
             if (webhookUrl) {
                 try {

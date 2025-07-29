@@ -3,6 +3,7 @@ const axios = require("axios");
 const { google } = require("googleapis");
 const path = require("path");
 const os = require("os");
+const https = require("https");
 const TempFileManager = require("../utils/tempFileManager");
 
 console.log(`🔧 Initializing YouTube service...`);
@@ -30,21 +31,20 @@ async function uploadVideoFromFile(filePath, title = "Uploaded via API", descrip
     console.log(`🖼️  Thumbnail URL: ${thumbnailUrl || 'None'}`);
     console.log(`📅 Scheduling time: ${schedulingTime || 'None (public)'}`);
 
-    // Check if file exists and get file size
-    if (!fs.existsSync(filePath)) {
-        throw new Error(`File not found: ${filePath}`);
-    }
+    const { result } = await dropbox.filesGetTemporaryLink({ path: filePath });
+    const dropboxDownloadUrl = result.link;
     
-    const stats = fs.statSync(filePath);
-    const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-    console.log(`📊 File size: ${fileSizeMB} MB`);
-    console.log(`📊 File size in bytes: ${stats.size}`);
-
     console.log(`📖 Creating video file stream...`);
-    let videoStream = fs.createReadStream(filePath, {
-        highWaterMark: 64 * 1024, // 64KB chunks for better memory management
-        flags: 'r'
+    const videoStream = await new Promise((resolve, reject) => {
+        https.get(dropboxDownloadUrl, (res) => {
+        if (res.statusCode !== 200) {
+            reject(new Error(`Dropbox stream HTTP status ${res.statusCode}`));
+            return;
+        }
+        resolve(res);
+        });
     });
+
     console.log(`✅ Video file stream created`);
 
     // Convert comma-separated string into array
@@ -72,75 +72,36 @@ async function uploadVideoFromFile(filePath, title = "Uploaded via API", descrip
     console.log(`🚀 Starting YouTube API upload...`);
     
     // Add retry logic for upload
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-        try {
-            console.log(`🔄 Upload attempt ${retryCount + 1}/${maxRetries}`);
             
-            const response = await youtube.videos.insert({
-                part: "snippet,status",
-                requestBody: {
-                    snippet: {
-                        title,
-                        description,
-                        tags,
-                    },
-                    status,
-                },
-                media: {
-                    body: videoStream,
-                },
-                // Add upload parameters for better handling
-                uploadType: 'resumable',
-                // onUploadProgress: (event) => {
-                //     if (event.bytesRead && stats.size) {
-                //         const progress = ((event.bytesRead / stats.size) * 100).toFixed(1);
-                //         console.log(`📈 Upload progress: ${progress}% (${(event.bytesRead / (1024 * 1024)).toFixed(2)} MB / ${fileSizeMB} MB)`);
-                //     }
-                // }
-            });
+    const response = await youtube.videos.insert({
+        part: "snippet,status",
+        notifySubscribers: false,
+        requestBody: {
+            snippet: {
+                title,
+                description,
+                tags,
+            },
+            status,
+        },
+        media: {
+            body: videoStream,
+        },
+    });
 
-            const videoId = response.data.id;
-            console.log(`✅ Video uploaded successfully!`);
-            console.log(`🎬 Video ID: ${videoId}`);
-            console.log(`🔗 Video URL: https://www.youtube.com/watch?v=${videoId}`);
+    const videoId = response.data.id;
+    console.log(`✅ Video uploaded successfully!`);
+    console.log(`🎬 Video ID: ${videoId}`);
+    console.log(`🔗 Video URL: https://www.youtube.com/watch?v=${videoId}`);
 
-            if (thumbnailUrl) {
-                console.log(`🖼️  Setting thumbnail from URL: ${thumbnailUrl}`);
-                await setThumbnailFromUrl(videoId, thumbnailUrl);
-                console.log(`✅ Thumbnail set successfully`);
-            }
-
-            console.log(`🎉 YouTube upload process completed!`);
-            return response.data;
-            
-        } catch (error) {
-            retryCount++;
-            console.error(`❌ Upload attempt ${retryCount} failed:`, error.message);
-            
-            if (error.code === 416 || error.message.includes('Range Not Satisfiable')) {
-                console.log(`🔄 Range error detected, retrying...`);
-                // Reset the stream for retry
-                videoStream.destroy();
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-                videoStream = fs.createReadStream(filePath, {
-                    highWaterMark: 64 * 1024,
-                    flags: 'r'
-                });
-                continue;
-            }
-            
-            if (retryCount >= maxRetries) {
-                console.error(`❌ All upload attempts failed`);
-                throw error;
-            }
-            
-            console.log(`⏳ Waiting before retry...`);
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds before retry
-        }
+    if (thumbnailUrl) {
+        console.log(`🖼️  Setting thumbnail from URL: ${thumbnailUrl}`);
+        await setThumbnailFromUrl(videoId, thumbnailUrl);
+        console.log(`✅ Thumbnail set successfully`);
     }
+
+    console.log(`🎉 YouTube upload process completed!`);
+    return response.data;
 }
 
 async function setThumbnailFromUrl(videoId, imageUrl) {
