@@ -4,6 +4,7 @@ const { google } = require("googleapis");
 const path = require("path");
 const os = require("os");
 const https = require("https");
+const dropboxService = require("./dropboxService");
 const TempFileManager = require("../utils/tempFileManager");
 
 console.log(`🔧 Initializing YouTube service...`);
@@ -31,7 +32,7 @@ async function uploadVideoFromFile(filePath, title = "Uploaded via API", descrip
     console.log(`🖼️  Thumbnail URL: ${thumbnailUrl || 'None'}`);
     console.log(`📅 Scheduling time: ${schedulingTime || 'None (public)'}`);
 
-    const { result } = await dropbox.filesGetTemporaryLink({ path: filePath });
+    const result = await dropboxService.filesGetTemporaryLink(filePath);
     const dropboxDownloadUrl = result.link;
     
     console.log(`📖 Creating video file stream...`);

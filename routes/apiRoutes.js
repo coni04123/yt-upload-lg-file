@@ -5,6 +5,7 @@ const {
     shareDropboxFile,
     unshareDropboxFile,
     getDropboxVideoStaticLink,
+    shareTempLink
 } = require("../controllers/transferController");
 const { uploadEpisode } = require("../controllers/redcircleController");
 
@@ -49,12 +50,10 @@ router.post("/static-link", (req, res) => {
     getDropboxVideoStaticLink(req, res);
 });
 
-console.log(`✅ API routes configured successfully`);
-console.log(`📋 Available routes:`);
-console.log(`   POST /api/transfer - Transfer Dropbox to YouTube`);
-console.log(`   POST /api/share - Share Dropbox file`);
-console.log(`   POST /api/unshare - Unshare Dropbox file`);
-console.log(`   POST /api/redcircle - Upload to RedCircle`);
-console.log(`   POST /api/static-link - Get Dropbox video static link`);
+// Share temporary link
+router.post("/share-temp-link", (req, res) => {
+    console.log(`🔗 Share temporary link endpoint called`);
+    shareTempLink(req, res);
+});
 
 module.exports = router;

@@ -15,6 +15,7 @@ const uploadEpisode = async (req, res) => {
         
         const { filePath, title, description, transcriptionLink, webhookUrl } = req.body;
         let result = {};
+        let localPath = "";
 
         try {
             if (!filePath || !title || !description) throw new Error("Missing required fields");
@@ -32,7 +33,7 @@ const uploadEpisode = async (req, res) => {
             TempFileManager.ensureDirectory(tmpDir);
             console.log(`✅ Temporary directory ready`);
             
-            const localPath = path.join(tmpDir, path.basename(filePath));
+            localPath = path.join(tmpDir, path.basename(filePath));
             console.log(`📁 Local file path: ${localPath}`);
             
             console.log(`📥 Downloading file from Dropbox...`);
@@ -69,7 +70,9 @@ const uploadEpisode = async (req, res) => {
         } finally {
             // Clean up temporary file using the utility
             console.log(`🧹 Cleaning up temporary file...`);
-            TempFileManager.safeDelete(localPath);
+            TempFileManager.safeDelete(
+                
+            );
             console.log(`✅ Temporary file cleaned up`);
         }
 

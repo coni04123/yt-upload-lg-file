@@ -130,6 +130,91 @@ const unshareFile = async (dropboxPath) => {
     return true;
 };
 
+// Get a temporary link for a file
+const filesGetTemporaryLink = async (filePath) => {
+    console.log(`\n🔗 Getting temporary link for Dropbox file...`);
+    console.log(`📁 File path: ${filePath}`);
+    
+    try {
+        const accessToken = await getAccessToken();
+        console.log(`🔑 Access token ready`);
+        console.log(`🔑 Token length: ${accessToken.length} characters`);
+        
+        const dbx = new Dropbox({ accessToken, fetch });
+        console.log(`🔧 Dropbox client initialized`);
+
+        // First, let's verify the file exists
+        console.log(`🔍 Verifying file exists...`);
+        try {
+            const metadata = await dbx.filesGetMetadata({ path: filePath });
+            console.log(`✅ File exists: ${metadata.result.name} (${metadata.result.size} bytes)`);
+        } catch (metadataError) {
+            console.error(`❌ File not found or access denied: ${metadataError.message}`);
+            throw new Error(`File not found or access denied: ${filePath}`);
+        }
+
+        // Try filesGetTemporaryLink first
+        console.log(`🚀 Attempting filesGetTemporaryLink...`);
+        try {
+            const res = await dbx.filesGetTemporaryLink({
+                path: filePath
+            });
+
+            console.log(`✅ Temporary link created successfully`);
+            console.log(`🔗 Temporary URL: ${res.result.link}`);
+            console.log(`⏰ Expires at: ${res.result.metadata.server_modified}`);
+            
+            return res.result;
+        } catch (tempLinkError) {
+            console.log(`⚠️ filesGetTemporaryLink failed, trying alternative method...`);
+            console.log(`Error: ${tempLinkError.message}`);
+            
+            // Fallback to creating a shared link and converting to direct download
+            console.log(`🔄 Creating shared link as fallback...`);
+            const shareRes = await dbx.sharingCreateSharedLinkWithSettings({
+                path: filePath,
+                settings: {
+                    requested_visibility: "public",
+                },
+            });
+
+            const url = shareRes.result.url.replace("dl=0", "dl=1"); // direct link
+            console.log(`✅ Shared link created as fallback`);
+            console.log(`🔗 Direct download URL: ${url}`);
+            
+            // Return in the same format as filesGetTemporaryLink
+            return {
+                link: url,
+                metadata: {
+                    server_modified: new Date().toISOString(),
+                    name: metadata.result.name,
+                    size: metadata.result.size
+                }
+            };
+        }
+    } catch (error) {
+        console.error(`❌ Error getting temporary link: ${error.message}`);
+        console.error(`❌ Error status: ${error.status}`);
+        console.error(`❌ Error details:`, error);
+        
+        if (error.status === 409) {
+            console.error(`🔍 409 Conflict Error Details:`);
+            console.error(`   - This usually indicates an authentication or API version issue`);
+            console.error(`   - Check if your access token is valid`);
+            console.error(`   - Verify the file path exists: ${filePath}`);
+            console.error(`   - Check if your Dropbox app has the correct permissions`);
+        } else if (error.status === 401) {
+            console.error(`🔍 401 Unauthorized Error Details:`);
+            console.error(`   - Access token is invalid or expired`);
+            console.error(`   - Check your DROPBOX_REFRESH_TOKEN environment variable`);
+        } else if (error.status === 404) {
+            console.error(`🔍 404 Not Found Error Details:`);
+            console.error(`   - File path does not exist: ${filePath}`);
+        }
+        throw error;
+    }
+};
+
 console.log(`✅ Dropbox service initialized successfully`);
 
 module.exports = {
@@ -137,4 +222,5 @@ module.exports = {
     downloadDropboxStream,
     shareFilePublicly,
     unshareFile,
+    filesGetTemporaryLink,
 };

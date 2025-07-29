@@ -60,12 +60,7 @@ app.listen(PORT, () => {
     console.log(`🔗 Server URL: http://localhost:${PORT}`);
     console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
     console.log(`📁 Video Directory: http://localhost:${PORT}/video`);
-    console.log(`\n📋 Available endpoints:`);
-    console.log(`   POST /api/transfer - Transfer Dropbox to YouTube`);
-    console.log(`   POST /api/share - Share Dropbox file`);
-    console.log(`   POST /api/unshare - Unshare Dropbox file`);
-    console.log(`   POST /api/redcircle - Upload to RedCircle`);
-    console.log(`   POST /api/static-link - Get Dropbox video static link`);
+    
     console.log(`\n✨ Server ready to handle requests!`);
     console.log(`🛡️  Error handling configured for range and network issues`);
 });

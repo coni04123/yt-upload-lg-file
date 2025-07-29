@@ -2,6 +2,7 @@ const {
     downloadDropboxStream,
     shareFilePublicly,
     unshareFile,
+    filesGetTemporaryLink,
 } = require("../services/dropboxService");
 
 const { uploadVideoFromFile } = require("../services/youtubeService");
@@ -54,8 +55,8 @@ const transferDropboxToYouTube = async (req, res) => {
             result = {
                 success: true,
                 message: "Video uploaded to YouTube",
-                videoId: _yt.data.id,
-                videoUrl: `https://www.youtube.com/watch?v=${_yt.data.id}`,
+                videoId: _yt.id,
+                videoUrl: `https://www.youtube.com/watch?v=${_yt.id}`,
             };
             console.log(`✅ Transfer completed successfully!`);
         } catch (err) {
@@ -176,7 +177,31 @@ const getDropboxVideoStaticLink = async (req, res) => {
     }
 };
 
+const shareTempLink = async (req, res) => {
+    console.log(`\n🔗 Starting temporary link sharing...`);
+    console.log(`📋 Request body:`, JSON.stringify(req.body, null, 2));
+    
+    const { path: dropboxPath } = req.body;
+    if (!dropboxPath) {
+        console.log(`❌ Error: Dropbox path is required`);
+        return res.status(400).json({ error: "Dropbox path is required" });
+    }
+    
+    try {
+        console.log(`🔗 Getting temporary link...`);
+        const tempLink = await filesGetTemporaryLink(dropboxPath);
+        console.log(`✅ Temporary link generated`);
+        
+        console.log(`✅ Temporary link sharing completed successfully`);
+        return res.status(200).json({ success: true, url: tempLink.link });
+    } catch (err) {
+        console.error(`❌ Temporary link generation failed: ${errs}`);
+        return res.status(500).json({ error: "Failed to generate temporary link" });
+    }
+}
+
 module.exports = {
+    shareTempLink,
     transferDropboxToYouTube,
     shareDropboxFile,
     unshareDropboxFile,
