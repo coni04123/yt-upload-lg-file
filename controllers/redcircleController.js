@@ -13,7 +13,7 @@ const uploadEpisode = async (req, res) => {
         console.log(`\n🎙️  Starting RedCircle episode upload controller...`);
         console.log(`📋 Request body:`, JSON.stringify(req.body, null, 2));
         
-        const { filePath, title, description, transcriptionLink, webhookUrl } = req.body;
+        const { filePath, title, description, transcriptionLink, webhookUrl, ...others } = req.body;
         let result = {};
         let localPath = "";
 
@@ -41,22 +41,12 @@ const uploadEpisode = async (req, res) => {
             console.log(`✅ File downloaded successfully`);
 
             console.log(`🎙️  Starting RedCircle service upload...`);
-            // Use local file path for upload
             try {
                 result = await RedCircleService.uploadEpisode({ filePath: localPath, title, description, transcriptionLink });
             } catch (err) {
                 result = { success: false, error: err.message };
             }
 
-            // Notify webhook if provided
-            if (webhookUrl) {
-                try {
-                    await axios.post(webhookUrl, {...result, executionId});
-                    console.log(`✅ Webhook notified: ${webhookUrl}`);
-                } catch (webhookErr) {
-                    console.error(`❌ Failed to notify webhook: ${webhookErr.message}`);
-                }
-            }
 
             if (result.success) {
                 console.log(`✅ Episode upload completed successfully!`);
@@ -71,7 +61,7 @@ const uploadEpisode = async (req, res) => {
             // Clean up temporary file using the utility
             console.log(`🧹 Cleaning up temporary file...`);
             TempFileManager.safeDelete(
-                
+                localPath
             );
             console.log(`✅ Temporary file cleaned up`);
         }
@@ -79,7 +69,7 @@ const uploadEpisode = async (req, res) => {
         // Notify webhook if provided
         if (webhookUrl) {
             try {
-                await axios.post(webhookUrl, result);
+                await axios.post(webhookUrl, {...result, ...others});
                 console.log(`✅ Webhook notified: ${webhookUrl}`);
             } catch (webhookErr) {
                 console.error(`❌ Failed to notify webhook: ${webhookErr.message}`);
