@@ -13,7 +13,7 @@ const uploadEpisode = async (req, res) => {
         console.log(`\n🎙️  Starting RedCircle episode upload controller...`);
         console.log(`📋 Request body:`, JSON.stringify(req.body, null, 2));
         
-        const { filePath, title, description, transcriptionLink, webhookUrl, ...others } = req.body;
+        const { filePath, title, description, transcriptionLink, schedulingTime, webhookUrl, ...others } = req.body;
         let result = {};
         let localPath = "";
 
@@ -42,7 +42,7 @@ const uploadEpisode = async (req, res) => {
 
             console.log(`🎙️  Starting RedCircle service upload...`);
             try {
-                result = await RedCircleService.uploadEpisode({ filePath: localPath, title, description, transcriptionLink });
+                result = await RedCircleService.uploadEpisode({ filePath: localPath, title, description, transcriptionLink, schedulingTime });
             } catch (err) {
                 result = { success: false, error: err.message };
             }

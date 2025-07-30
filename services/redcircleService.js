@@ -75,7 +75,7 @@ function compressAudioIfNeeded(audioPath) {
   });
 }
 
-const uploadEpisode = async ({ filePath, title, description, transcriptionLink }) => {
+const uploadEpisode = async ({ filePath, title, description, transcriptionLink, schedulingTime }) => {
   console.log(`\n🎙️  Starting RedCircle episode upload...`);
   console.log(`📁 File path: ${filePath}`);
   console.log(`📝 Title: ${title}`);
@@ -173,6 +173,13 @@ const uploadEpisode = async ({ filePath, title, description, transcriptionLink }
         console.log(`📤 Uploading audio file...`);
         await page.$('input[type="file"][accept*="audio"]').then(input => input.uploadFile(compressedFilePath));
         console.log(`✅ Audio file uploaded`);
+
+        console.log(`🕒 Scheduling episode for: ${schedulingTime}`);
+        await page.waitForSelector('[data-type="month"]');
+        await page.click('[data-type="month"]');  // Focus on month
+        await page.keyboard.press('ArrowLeft');
+        await page.keyboard.type(schedulingTime);
+        console.log(`✅ Episode scheduled for: ${schedulingTime}`);
 
         console.log(`🎙️  Enabling transcription...`);
         await page.evaluate(() => {

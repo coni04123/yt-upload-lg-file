@@ -37,8 +37,8 @@ const transferDropboxToYouTube = async (req, res) => {
             result = {
                 success: true,
                 message: "Video uploaded to YouTube",
-                videoId: _yt.id,
-                videoUrl: `https://www.youtube.com/watch?v=${_yt.id}`,
+                videoId: _yt.videoId,
+                videoUrl: `https://www.youtube.com/watch?v=${_yt.videoId}`,
             };
             console.log(`✅ Transfer completed successfully!`);
         } catch (err) {
