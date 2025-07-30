@@ -23,86 +23,97 @@ const youtube = google.youtube({
     auth: oauth2Client,
 });
 
-async function uploadVideoFromFile(filePath, title = "Uploaded via API", description = "", tagsString = "", thumbnailUrl = null, schedulingTime = null) {
-    console.log(`\n🎬 Starting YouTube video upload...`);
-    console.log(`📁 File path: ${filePath}`);
-    console.log(`📝 Title: ${title}`);
-    console.log(`📄 Description length: ${description.length} characters`);
-    console.log(`🏷️  Tags: ${tagsString}`);
-    console.log(`🖼️  Thumbnail URL: ${thumbnailUrl || 'None'}`);
-    console.log(`📅 Scheduling time: ${schedulingTime || 'None (public)'}`);
+async function uploadVideoFromFile(
+    dropboxPath,
+    title = "Uploaded via API",
+    description = "",
+    tagsString = "",
+    thumbnailUrl = null,
+    schedulingTime = null,
+) {
+    // 1. Download Dropbox file to temp directory
+    const fileName = path.basename(dropboxPath);
+    const tempDir = path.join(__dirname, "..", "tmp");
+    TempFileManager.ensureDirectory(tempDir);
+    const localPath = path.join(tempDir, fileName);
 
-    const result = await dropboxService.filesGetTemporaryLink(filePath);
-    const dropboxDownloadUrl = result.link;
-    
-    console.log(`📖 Creating video file stream...`);
-    const videoStream = await new Promise((resolve, reject) => {
-        https.get(dropboxDownloadUrl, (res) => {
-        if (res.statusCode !== 200) {
-            reject(new Error(`Dropbox stream HTTP status ${res.statusCode}`));
-            return;
-        }
-        resolve(res);
-        });
-    });
+    let result = {};
+    try {
+        console.log(`📥 Downloading from Dropbox: ${dropboxPath} → ${localPath}`);
+        await dropboxService.downloadDropboxStream(dropboxPath, localPath);
+        console.log(`✅ Downloaded file to local disk`);
 
-    console.log(`✅ Video file stream created`);
+        // 2. Upload local file to YouTube
+        const stats = fs.statSync(localPath);
+        const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+        console.log(`📊 File size: ${fileSizeMB} MB`);
 
-    // Convert comma-separated string into array
-    const tags = tagsString
-        .split(",")
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
-    console.log(`🏷️  Processed tags: ${tags.length} tags`);
+        const videoStream = fs.createReadStream(localPath);
 
-    // Set privacyStatus and publishAt for scheduling
-    const status = schedulingTime
-        ? {
-            privacyStatus: "private",
-            publishAt: new Date(schedulingTime).toISOString(),
-            selfDeclaredMadeForKids: false
-        }
-        : {
-            privacyStatus: "public"
-        };
-    console.log(`🔒 Privacy status: ${status.privacyStatus}`);
-    if (schedulingTime) {
-        console.log(`📅 Scheduled publish time: ${status.publishAt}`);
-    }
+        const tags = tagsString
+            .split(",")
+            .map(tag => tag.trim())
+            .filter(tag => tag.length > 0);
 
-    console.log(`🚀 Starting YouTube API upload...`);
-    
-    // Add retry logic for upload
-            
-    const response = await youtube.videos.insert({
-        part: "snippet,status",
-        notifySubscribers: false,
-        requestBody: {
-            snippet: {
-                title,
-                description,
-                tags,
+        const status = schedulingTime
+            ? {
+                privacyStatus: "private",
+                publishAt: new Date(schedulingTime).toISOString(),
+                selfDeclaredMadeForKids: false
+            }
+            : {
+                privacyStatus: "public"
+            };
+
+        const response = await youtube.videos.insert({
+            part: "snippet,status",
+            notifySubscribers: false,
+            requestBody: {
+                snippet: {
+                    title,
+                    description,
+                    tags,
+                },
+                status,
             },
-            status,
-        },
-        media: {
-            body: videoStream,
-        },
-    });
+            media: {
+                body: videoStream,
+            },
+        });
 
-    const videoId = response.data.id;
-    console.log(`✅ Video uploaded successfully!`);
-    console.log(`🎬 Video ID: ${videoId}`);
-    console.log(`🔗 Video URL: https://www.youtube.com/watch?v=${videoId}`);
+        const videoId = response.data.id;
+        console.log(`✅ Video uploaded successfully!`);
+        console.log(`🎬 Video ID: ${videoId}`);
+        console.log(`🔗 Video URL: https://www.youtube.com/watch?v=${videoId}`);
 
-    if (thumbnailUrl) {
-        console.log(`🖼️  Setting thumbnail from URL: ${thumbnailUrl}`);
-        await setThumbnailFromUrl(videoId, thumbnailUrl);
-        console.log(`✅ Thumbnail set successfully`);
+        if (thumbnailUrl) {
+            console.log(`🖼️  Setting thumbnail from URL: ${thumbnailUrl}`);
+            await setThumbnailFromUrl(videoId, thumbnailUrl);
+            console.log(`✅ Thumbnail set successfully`);
+        }
+
+        result = {
+            success: true,
+            videoId,
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            message: "Video uploaded to YouTube"
+        };
+    } catch (err) {
+        console.error(`❌ Upload failed: ${err.message}`);
+        result = {
+            success: false,
+            error: err.message,
+            stack: err.stack
+        };
+    } finally {
+        // 3. Delete temp file
+        if (fs.existsSync(localPath)) {
+            TempFileManager.safeDelete(localPath);
+            console.log(`🧹 Deleted temp file: ${localPath}`);
+        }
+        
+        return result;
     }
-
-    console.log(`🎉 YouTube upload process completed!`);
-    return response.data;
 }
 
 async function setThumbnailFromUrl(videoId, imageUrl) {
